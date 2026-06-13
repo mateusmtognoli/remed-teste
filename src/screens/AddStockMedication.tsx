@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Package, Save, Database, AlertCircle } from 'lucide-react';
+import { Package, Save } from 'lucide-react';
 import { useMedications } from '../context/MedicationContext';
+
+const PACKAGE_UNITS: Record<string, { label: string; suffix: string; step: number }> = {
+  pill: { label: 'Quantidade Inicial', suffix: 'comprimidos', step: 1 },
+  capsule: { label: 'Quantidade Inicial', suffix: 'cápsulas', step: 1 },
+  liquid: { label: 'Volume Inicial', suffix: 'ml', step: 10 },
+  injection: { label: 'Quantidade Inicial', suffix: 'ampolas', step: 1 },
+};
 
 export default function AddStockMedication() {
   const navigate = useNavigate();
@@ -53,7 +60,7 @@ export default function AddStockMedication() {
   return (
     <Layout>
       <header className="mb-8">
-        <h2 className="font-bold text-3xl text-slate-900 leading-tight">Adicionar ao Estoque</h2>
+        <h2 className="font-bold text-3xl text-slate-900 leading-tight">Adicionar Medicamento</h2>
         <p className="text-slate-500 mt-2 font-medium">Cadastre novos medicamentos para controle de inventário.</p>
       </header>
 
@@ -73,62 +80,54 @@ export default function AddStockMedication() {
                 placeholder="Ex: Paracetamol 500mg" 
               />
             </div>
-            <div className="space-y-1">
-              <label className="block font-semibold text-sm ml-1 text-slate-700">Quantidade Inicial</label>
-              <div className="flex items-center gap-4 bg-white rounded-2xl p-2 border border-slate-200">
-                <button 
-                  onClick={() => setCount(Math.max(0, count - 1))}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
-                >
-                  <span className="text-xl">-</span>
-                </button>
-                <input 
-                  type="number" 
-                  value={count}
-                  onChange={(e) => setCount(parseInt(e.target.value) || 0)}
-                  className="flex-1 text-center border-none bg-transparent font-bold text-xl focus:ring-0" 
-                />
-                <button 
-                  onClick={() => setCount(count + 1)}
-                  className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
-                >
-                  <span className="text-xl">+</span>
-                </button>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block font-semibold text-sm ml-1 text-slate-700">Tipo de Embalagem</label>
+                <div className="relative">
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
+                    className="w-full appearance-none bg-white border-none rounded-2xl py-4 pl-5 pr-10 focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-700 cursor-pointer outline-none transition-all"
+                  >
+                    <option value="pill">Comprimidos</option>
+                    <option value="capsule">Cápsulas</option>
+                    <option value="liquid">Líquido</option>
+                    <option value="injection">Injetável</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="block font-semibold text-sm ml-1 text-slate-700">{PACKAGE_UNITS[type].label} ({PACKAGE_UNITS[type].suffix})</label>
+                <div className="flex items-center gap-2 bg-white rounded-2xl p-2 border border-slate-200">
+                  <button
+                    onClick={() => setCount(Math.max(0, count - PACKAGE_UNITS[type].step))}
+                    className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shrink-0"
+                  >
+                    <span className="text-xl">-</span>
+                  </button>
+                  <input
+                    type="number"
+                    value={count === 0 ? '' : count}
+                    onChange={(e) => setCount(parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                    className="flex-1 w-0 text-center border-none bg-transparent font-bold text-xl focus:ring-0"
+                  />
+                  <button
+                    onClick={() => setCount(count + PACKAGE_UNITS[type].step)}
+                    className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shrink-0"
+                  >
+                    <span className="text-xl">+</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="bg-slate-100 rounded-[2rem] p-6 space-y-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Database className="text-emerald-600 w-6 h-6" />
-            <h3 className="font-bold text-lg">Configurações</h3>
-          </div>
-          <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <span className="font-bold text-slate-700">Tipo de Embalagem</span>
-            <div className="relative">
-              <select 
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="appearance-none bg-emerald-50 border-none rounded-xl pl-4 pr-10 py-2 text-sm font-extrabold text-emerald-700 focus:ring-2 focus:ring-emerald-500 cursor-pointer outline-none transition-all hover:bg-emerald-100"
-              >
-                <option value="pill">Comprimidos</option>
-                <option value="capsule">Cápsulas</option>
-                <option value="liquid">Líquido</option>
-                <option value="injection">Injetável</option>
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 italic">
-            <AlertCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-            <p className="text-[11px] text-emerald-800 font-medium">O sistema calculará automaticamente os dias restantes com base no seu uso diário cadastrado.</p>
-          </div>
-        </section>
-
-        <button 
+        <button
           onClick={handleSave}
           className="w-full py-5 rounded-full bg-emerald-700 text-white font-extrabold text-lg shadow-xl shadow-emerald-100 active:scale-95 transition-all mt-4 hover:bg-emerald-800 flex items-center justify-center gap-3"
         >

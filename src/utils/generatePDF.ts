@@ -218,8 +218,7 @@ export function generateMonthlyPDF(
 
 export function generateCombinedPDF(
   monthYearLabel: string,
-  dependentsData: Array<{ name: string; medications: Medication[] }>,
-  inventory: InventoryItem[]
+  dependentsData: Array<{ name: string; medications: Medication[] }>
 ) {
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
@@ -298,31 +297,6 @@ export function generateCombinedPDF(
       y = ((doc as any).lastAutoTable?.finalY ?? y + 30) + 12;
     }
   }
-
-  // ── Inventory ─────────────────────────────────────────────────────────────
-  if (y > 230) { doc.addPage(); y = 20; }
-  doc.setTextColor(...SLATE_800);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Status do Estoque', 14, y);
-  y += 6;
-
-  autoTable(doc, {
-    startY: y,
-    head: [['Medicamento', 'Quantidade', 'Dias Restantes', 'Status']],
-    body: inventory.map(item => [item.name, `${item.count} un.`, `${item.daysLeft} dias`, item.status ?? 'Normal']),
-    headStyles: { fillColor: EMERALD, textColor: WHITE, fontStyle: 'bold', fontSize: 8 },
-    bodyStyles: { fontSize: 8, textColor: SLATE_800 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
-    didParseCell(data) {
-      if (data.section === 'body' && data.column.index === 3) {
-        const s = data.cell.raw as string;
-        data.cell.styles.textColor = s === 'Crítico' ? RED : s === 'Alerta' ? AMBER : EMERALD;
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-    margin: { left: 14, right: 14 },
-  });
 
   // ── Footer ─────────────────────────────────────────────────────────────────
   const pageH = doc.internal.pageSize.getHeight();

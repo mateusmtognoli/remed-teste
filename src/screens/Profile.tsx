@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { userRole, activeDependent, unpairDevice, medications, dependents, inventory } = useMedications();
+  const { userRole, activeDependent, unpairDevice, medications, dependents, adherenceStats } = useMedications();
   const { signOut, user } = useAuth();
   const userName = (user?.user_metadata?.name as string | undefined)
     || user?.email?.split('@')[0]
@@ -29,8 +29,13 @@ export default function Profile() {
     const late = meds.filter(m => m.status === 'Atrasada').length;
     const skipped = meds.filter(m => m.status === 'Pulada').length;
     const pending = meds.filter(m => m.status === 'Pendente').length;
-    const actionable = taken + late + skipped;
-    const pct = actionable > 0 ? Math.round((taken / actionable) * 100) : (pending === 0 ? 100 : 0);
+
+    // Combina o histórico acumulado (dias anteriores) com as doses já decididas hoje
+    const cumulative = adherenceStats[dep.id] ?? { taken: 0, total: 0 };
+    const todayActionable = taken + late + skipped;
+    const totalTaken = cumulative.taken + taken;
+    const totalDoses = cumulative.total + todayActionable;
+    const pct = totalDoses > 0 ? Math.round((totalTaken / totalDoses) * 100) : (pending === 0 ? 100 : 0);
     return { ...dep, meds, taken, late, skipped, pending, pct };
   });
 
@@ -91,7 +96,6 @@ export default function Profile() {
               <span className="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full text-[11px] font-bold">
                 {dependents.length} Dependente{dependents.length !== 1 ? 's' : ''} {dependents.length > 0 ? 'Ativo' + (dependents.length !== 1 ? 's' : '') : ''}
               </span>
-              <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-[11px] font-bold">Plano Premium</span>
             </div>
           </section>
 
@@ -198,8 +202,7 @@ export default function Profile() {
               <button
                 onClick={() => generateCombinedPDF(
                   monthYearLabel,
-                  dependentsStats.map(d => ({ name: d.name, medications: d.meds })),
-                  inventory
+                  dependentsStats.map(d => ({ name: d.name, medications: d.meds }))
                 )}
                 className="text-slate-500 text-[11px] font-extrabold underline decoration-slate-300 active:opacity-60 transition-opacity shrink-0 ml-2"
               >

@@ -50,7 +50,6 @@ export default function NotificationPreferences() {
               <PreferenceToggle
                 icon={<Moon size={18} />}
                 title="Resumo Diário"
-                desc="Receba às 00:00h um resumo das ações do dia."
                 active={settings.dailySummary}
                 onClick={() => toggle('dailySummary')}
               />

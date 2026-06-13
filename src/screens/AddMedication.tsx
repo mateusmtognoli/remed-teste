@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Pill, Clock, Settings, Volume2, Save } from 'lucide-react';
 import { useMedications } from '../context/MedicationContext';
+import { PACKAGE_UNIT_LABELS } from '../utils/packageUnits';
 
 export default function AddMedication() {
   const navigate = useNavigate();
-  const { addMedication, activeDependent, userRole } = useMedications();
+  const { addMedication, inventory, activeDependent, userRole } = useMedications();
   const responsavelName = activeDependent?.responsavelName || 'seu responsável';
 
   const [name, setName] = useState('');
@@ -18,6 +19,11 @@ export default function AddMedication() {
   const [repeat, setRepeat] = useState(true);
   const [sound, setSound] = useState(false);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
+
+  const matchedInventoryItem = inventory.find(
+    item => item.name.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+  const matchedUnit = matchedInventoryItem ? PACKAGE_UNIT_LABELS[matchedInventoryItem.type] : null;
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev => 
@@ -68,7 +74,7 @@ export default function AddMedication() {
   return (
     <Layout>
       <header className="mb-8">
-        <h2 className="font-bold text-3xl text-slate-900 leading-tight">Cadastrar Novo Medicamento</h2>
+        <h2 className="font-bold text-3xl text-slate-900 leading-tight">Adicionar Novo Lembrete</h2>
         <p className="text-slate-500 mt-2 font-medium">Configure os detalhes e horários para o seu lembrete.</p>
       </header>
 
@@ -91,12 +97,17 @@ export default function AddMedication() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block font-semibold text-sm ml-1 text-slate-700">Dosagem</label>
-                <input 
+                <input
                   value={dosage}
                   onChange={(e) => setDosage(e.target.value)}
-                  className="w-full bg-white border-none rounded-2xl py-4 px-5 focus:ring-2 focus:ring-emerald-500 transition-all font-medium" 
-                  placeholder="Ex: 1 comprimido" 
+                  className="w-full bg-white border-none rounded-2xl py-4 px-5 focus:ring-2 focus:ring-emerald-500 transition-all font-medium"
+                  placeholder={matchedUnit ? `Ex: 1 ${matchedUnit.singular}` : 'Ex: 1 comprimido'}
                 />
+                {matchedUnit && (
+                  <p className="text-xs text-emerald-600 font-semibold ml-1">
+                    Unidade de medida do estoque: {matchedUnit.plural}
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="block font-semibold text-sm ml-1 text-slate-700">Instruções</label>
@@ -167,20 +178,22 @@ export default function AddMedication() {
               </div>
             </div>
 
-            <div className="p-5 bg-white rounded-2xl border border-slate-200/50 shadow-sm">
-              <label className="block font-extrabold text-[10px] uppercase tracking-widest mb-4 text-emerald-600">Frequência</label>
-              <div className="flex justify-between items-center gap-1">
-                {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => toggleDay(i)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all active:scale-90 ${selectedDays.includes(i) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'bg-slate-100 text-slate-400'}`}
-                  >
-                    {day}
-                  </button>
-                ))}
+            {repeat && (
+              <div className="p-5 bg-white rounded-2xl border border-slate-200/50 shadow-sm">
+                <label className="block font-extrabold text-[10px] uppercase tracking-widest mb-4 text-emerald-600">Frequência</label>
+                <div className="flex justify-between items-center gap-1">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
+                    <button
+                      key={i}
+                      onClick={() => toggleDay(i)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all active:scale-90 ${selectedDays.includes(i) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'bg-slate-100 text-slate-400'}`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div 
               onClick={() => setSound(!sound)}

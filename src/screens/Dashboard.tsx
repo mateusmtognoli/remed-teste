@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Clock, CheckCircle, AlertTriangle, Activity, Package, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMedications } from '../context/MedicationContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { medications, inventory, updateStatus, removeMedication, userRole, activeDependent, setActiveDependent, dependents } = useMedications();
+  const { medications, updateStatus, removeMedication, userRole, activeDependent, setActiveDependent, dependents } = useMedications();
   const [medToDelete, setMedToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const confirmRemove = () => {
@@ -23,7 +23,6 @@ export default function Dashboard() {
   const takenDoses = filteredMedications.filter(m => m.status === 'Tomada').length;
   const progressPercent = totalDoses > 0 ? (takenDoses / totalDoses) * 100 : 0;
 
-  const minDaysLeft = inventory.length > 0 ? Math.min(...inventory.map(i => i.daysLeft)) : null;
 
   return (
     <Layout>
@@ -204,27 +203,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {userRole !== 'emparelhado' && (
-        <section className="grid grid-cols-2 gap-4 mt-8">
-          <button
-            onClick={() => navigate('/stock')}
-            className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:scale-[1.02] active:scale-95 transition-all group"
-          >
-            <div className="bg-emerald-100/50 p-2 rounded-xl group-hover:bg-emerald-100 transition-colors">
-              <Package className="w-6 h-6 text-emerald-600" />
-            </div>
-            <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Gerenciar Estoque</p>
-            <p className="text-2xl font-extrabold text-slate-900">{minDaysLeft !== null ? `${minDaysLeft} dias` : '—'}</p>
-          </button>
-          <div className="bg-white p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-[0.98]">
-            <div className="bg-emerald-50 p-2 rounded-xl">
-              <Activity className="w-6 h-6 text-emerald-600" />
-            </div>
-            <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Adesão</p>
-            <p className="text-2xl font-extrabold text-slate-900">{totalDoses > 0 ? `${Math.round(progressPercent)}%` : '—'}</p>
-          </div>
-        </section>
-      )}
 
       <AnimatePresence>
         {medToDelete && (

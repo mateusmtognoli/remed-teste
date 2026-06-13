@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, PlusCircle, History, User, Bell, type LucideIcon } from 'lucide-react';
+import { Home, PlusCircle, History, User, Bell, Package, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useMedications } from '../context/MedicationContext';
 
@@ -12,13 +12,20 @@ interface LayoutProps {
 
 export default function Layout({ children, showTopBar = true, showBottomNav = true }: LayoutProps) {
   const navigate = useNavigate();
-  const { medications, inventory, activeDependent } = useMedications();
+  const { medications, inventory, activeDependent, userRole } = useMedications();
+
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
   const hasNewNotifications =
-    medications.some(m =>
-      m.dependentId === activeDependent?.id &&
-      (m.status === 'Pendente' || m.status === 'Atrasada')
-    ) ||
+    medications.some(m => {
+      if (m.dependentId !== activeDependent?.id) return false;
+      if (m.status === 'Atrasada') return true;
+      if (m.status === 'Pendente') {
+        const [h, min] = m.time.split(':').map(Number);
+        return (h * 60 + min) - nowMinutes <= 15;
+      }
+      return false;
+    }) ||
     inventory.some(item => item.status !== null);
 
   return (
@@ -60,6 +67,9 @@ export default function Layout({ children, showTopBar = true, showBottomNav = tr
         <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-100 z-50">
           <div className="flex justify-around items-end px-2 pb-6 pt-3 max-w-2xl mx-auto">
             <NavButton to="/dashboard" icon={Home} label="Início" />
+            {userRole !== 'emparelhado' && (
+              <NavButton to="/stock" icon={Package} label="Estoque" />
+            )}
             <NavButton to="/add-medication" icon={PlusCircle} label="Adicionar" />
             <NavButton to="/history" icon={History} label="Histórico" />
             <NavButton to="/profile" icon={User} label="Perfil" />

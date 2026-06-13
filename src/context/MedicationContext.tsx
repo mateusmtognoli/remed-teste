@@ -20,10 +20,16 @@ export interface InventoryItem {
   name: string;
   status: 'Crítico' | 'Alerta' | null;
   count: number;
+  registeredAmount: number;
   daysLeft: number;
   bar: string;
   type: string;
   color: string;
+}
+
+export interface AdherenceStats {
+  taken: number;
+  total: number;
 }
 
 export type UserRole = 'dependente' | 'responsavel' | 'emparelhado';
@@ -51,8 +57,10 @@ interface MedicationContextType {
   updateStatus: (id: string, status: MedicationStatus) => void;
   removeMedication: (id: string) => void;
   inventory: InventoryItem[];
-  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color'>) => void;
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color' | 'registeredAmount'>) => void;
   updateInventoryCount: (id: string, quantity: number) => void;
+  removeInventoryItem: (id: string) => void;
+  adherenceStats: Record<string, AdherenceStats>;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   activeDependent: Dependent | null;
@@ -68,6 +76,21 @@ interface MedicationContextType {
 const MedicationContext = createContext<MedicationContextType | undefined>(undefined);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+// Extrai a quantidade numérica de um texto de dosagem (ex: "2 comprimidos" → 2)
+function parseDosageQuantity(dosage: string): number {
+  const match = dosage.match(/(\d+(?:[.,]\d+)?)/);
+  if (!match) return 1;
+  return parseFloat(match[1].replace(',', '.')) || 1;
+}
+
+// Crítico quando o estoque atual cai para 10% ou menos do total já registrado
+function inventoryStatus(count: number, registeredAmount: number): 'Crítico' | 'Alerta' | null {
+  if (registeredAmount <= 0) return null;
+  if (count <= registeredAmount * 0.1) return 'Crítico';
+  if (count < registeredAmount * 0.3) return 'Alerta';
+  return null;
+}
 
 function generatePairingCode(name: string): string {
   const prefix = name.trim().split(/\s+/)[0].toUpperCase().slice(0, 3).padEnd(3, 'X');
@@ -106,6 +129,7 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
   const ADEP_KEY  = `remed_active_dep_${userKey}`;
   const MEDS_KEY  = `remed_medications_${userKey}`;
   const INV_KEY   = `remed_inventory_${userKey}`;
+  const ADH_KEY   = `remed_adherence_${userKey}`;
   // Para emparelhado, lê/escreve medicamentos da conta do responsável
   const savedRole = localStorage.getItem(ROLE_KEY) as UserRole | null;
   const responsavelKey = localStorage.getItem('remed_responsavel_key');
@@ -240,7 +264,13 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
     loadFromStorage<Medication[]>(MEDS_SYNC_KEY, [])
   );
   const [inventory, setInventory] = useState<InventoryItem[]>(() =>
-    loadFromStorage<InventoryItem[]>(INV_KEY, [])
+    loadFromStorage<InventoryItem[]>(INV_KEY, []).map(item => ({
+      ...item,
+      registeredAmount: item.registeredAmount ?? item.count,
+    }))
+  );
+  const [adherenceStats, setAdherenceStats] = useState<Record<string, AdherenceStats>>(() =>
+    loadFromStorage<Record<string, AdherenceStats>>(ADH_KEY, {})
   );
 
   const addMedication = (med: Omit<Medication, 'id' | 'status'>) => {
@@ -256,9 +286,11 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
   };
 
   const updateStatus = (id: string, status: MedicationStatus) => {
+    let medBeforeUpdate: Medication | undefined;
     setMedications(prev => {
       const updated = prev.map(m => {
         if (m.id !== id) return m;
+        medBeforeUpdate = m;
         return {
           ...m,
           status,
@@ -270,6 +302,27 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
       localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
       return updated;
     });
+
+    // Ao confirmar a dose, subtrai a quantidade correspondente do estoque
+    if (status === 'Tomada' && medBeforeUpdate && medBeforeUpdate.status !== 'Tomada') {
+      const med = medBeforeUpdate;
+      setInventory(prev => {
+        const item = prev.find(i => i.name.trim().toLowerCase() === med.name.trim().toLowerCase());
+        if (!item) return prev;
+        const quantity = parseDosageQuantity(med.dosage);
+        const newCount = Math.max(0, item.count - quantity);
+        const status = inventoryStatus(newCount, item.registeredAmount);
+        const updated = prev.map(i => i.id === item.id ? {
+          ...i,
+          count: newCount,
+          status,
+          bar: item.registeredAmount > 0 ? `${Math.min(100, (newCount / item.registeredAmount) * 100)}%` : '0%',
+          color: status === 'Crítico' ? 'bg-red-500' : 'bg-emerald-500',
+        } : i);
+        localStorage.setItem(INV_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const removeMedication = (id: string) => {
@@ -280,14 +333,17 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
     });
   };
 
-  const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color'>) => {
+  const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color' | 'registeredAmount'>) => {
     setInventory(prev => {
+      const registeredAmount = item.count;
+      const status = inventoryStatus(item.count, registeredAmount);
       const updated = [...prev, {
         ...item,
         id: Math.random().toString(36).substring(2, 11),
-        status: item.count < 10 ? 'Crítico' : item.count < 30 ? 'Alerta' : null,
-        bar: `${Math.min(100, (item.count / 60) * 100)}%`,
-        color: item.count < 10 ? 'bg-red-500' : 'bg-emerald-500',
+        registeredAmount,
+        status,
+        bar: registeredAmount > 0 ? `${Math.min(100, (item.count / registeredAmount) * 100)}%` : '0%',
+        color: status === 'Crítico' ? 'bg-red-500' : 'bg-emerald-500',
       }] as InventoryItem[];
       localStorage.setItem(INV_KEY, JSON.stringify(updated));
       return updated;
@@ -298,19 +354,70 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
     setInventory(prev => {
       const updated = prev.map(item => {
         if (item.id !== id) return item;
-        const newCount = item.count + quantity;
+        const newCount = Math.max(0, item.count + quantity);
+        // Reposições (quantidade positiva) aumentam o total registrado, usado como base para o alerta de estoque baixo
+        const registeredAmount = quantity > 0 ? item.registeredAmount + quantity : item.registeredAmount;
+        const status = inventoryStatus(newCount, registeredAmount);
         return {
           ...item,
           count: newCount,
-          status: newCount < 10 ? 'Crítico' : newCount < 30 ? 'Alerta' : null,
-          bar: `${Math.min(100, (newCount / 60) * 100)}%`,
-          color: newCount < 10 ? 'bg-red-500' : 'bg-emerald-500',
+          registeredAmount,
+          status,
+          bar: registeredAmount > 0 ? `${Math.min(100, (newCount / registeredAmount) * 100)}%` : '0%',
+          color: status === 'Crítico' ? 'bg-red-500' : 'bg-emerald-500',
         };
       });
       localStorage.setItem(INV_KEY, JSON.stringify(updated));
       return updated;
     });
   };
+
+  const removeInventoryItem = (id: string) => {
+    setInventory(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      localStorage.setItem(INV_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Reinicia o status das doses ('Tomada'/'Pulada' → 'Pendente') quando o dia muda
+  React.useEffect(() => {
+    const LAST_RESET_KEY = `remed_last_reset_${userKey}`;
+    const checkDailyReset = () => {
+      const today = new Date().toDateString();
+      if (localStorage.getItem(LAST_RESET_KEY) === today) return;
+
+      // Acumula a adesão do dia que está terminando antes de zerar os status
+      const currentMeds = loadFromStorage<Medication[]>(MEDS_SYNC_KEY, []);
+      const endingDay = (new Date().getDay() + 6) % 7;
+      const stats = loadFromStorage<Record<string, AdherenceStats>>(ADH_KEY, {});
+      currentMeds.forEach(m => {
+        if (!m.dependentId || !m.days.includes(endingDay)) return;
+        const stat = stats[m.dependentId] ?? { taken: 0, total: 0 };
+        stat.total += 1;
+        if (m.status === 'Tomada') stat.taken += 1;
+        stats[m.dependentId] = stat;
+      });
+      localStorage.setItem(ADH_KEY, JSON.stringify(stats));
+      setAdherenceStats(stats);
+
+      setMedications(prev => {
+        const updated = prev.map(m => ({
+          ...m,
+          status: 'Pendente' as MedicationStatus,
+          confirmTime: undefined,
+        }));
+        localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
+        return updated;
+      });
+      localStorage.setItem(LAST_RESET_KEY, today);
+    };
+
+    checkDailyReset();
+    const interval = setInterval(checkDailyReset, 60_000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Atualiza status para 'Atrasada' quando o horário agendado já passou
   React.useEffect(() => {
@@ -345,7 +452,8 @@ export function MedicationProvider({ children }: { children: React.ReactNode }) 
   return (
     <MedicationContext.Provider value={{
       medications, addMedication, updateStatus, removeMedication,
-      inventory, addInventoryItem, updateInventoryCount,
+      inventory, addInventoryItem, updateInventoryCount, removeInventoryItem,
+      adherenceStats,
       userRole, setUserRole,
       activeDependent, setActiveDependent,
       dependents, addDependent, removeDependent,

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useMedications } from '../context/MedicationContext';
+import { PACKAGE_UNIT_LABELS } from '../utils/packageUnits';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -95,18 +96,30 @@ export default function Notifications() {
   // Build notification list from real data
   const notifications: NotifItem[] = [];
 
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
   // Medication notifications — actionable first (pending, late), then historical
   const order: NotifItem['kind'][] = ['late', 'pending', 'taken', 'skipped'];
   for (const status of order) {
     relevantMeds
-      .filter(m =>
-        status === 'late' ? m.status === 'Atrasada' :
-        status === 'pending' ? m.status === 'Pendente' :
-        status === 'taken' ? m.status === 'Tomada' :
-        m.status === 'Pulada'
-      )
+      .filter(m => {
+        if (status === 'late') return m.status === 'Atrasada';
+        if (status === 'taken') return m.status === 'Tomada';
+        if (status === 'skipped') return m.status === 'Pulada';
+        // 'pending': só notifica a partir de 15 minutos antes do horário da dose
+        if (m.status !== 'Pendente') return false;
+        const [h, min] = m.time.split(':').map(Number);
+        const doseMinutes = h * 60 + min;
+        return doseMinutes - nowMinutes <= 15;
+      })
       .forEach(m => {
         const kind = status as NotifItem['kind'];
+        const matchedItem = inventory.find(i => i.name.trim().toLowerCase() === m.name.trim().toLowerCase());
+        const unit = matchedItem ? PACKAGE_UNIT_LABELS[matchedItem.type] : null;
+        const dosageWithUnit = unit && /^\d+([.,]\d+)?$/.test(m.dosage.trim())
+          ? `${m.dosage} ${unit.plural}`
+          : m.dosage;
         notifications.push({
           id: `med-${m.id}`,
           kind,
@@ -117,7 +130,7 @@ export default function Notifications() {
                                  `Dose pulada: ${m.name}`,
           description:
             kind === 'taken'
-              ? `Tomada às ${m.confirmTime ?? m.time} · ${m.dosage}`
+              ? `Tomada às ${m.confirmTime ?? m.time} · ${dosageWithUnit}`
               : kind === 'skipped'
               ? `Pulada às ${m.confirmTime ?? m.time} · ${m.dosage}`
               : `${m.dosage} · ${m.instructions} · Horário: ${m.time}`,
@@ -136,7 +149,7 @@ export default function Notifications() {
         id: `stock-${item.id}`,
         kind: item.status === 'Crítico' ? 'critical' : 'alert',
         title: `Estoque ${item.status}: ${item.name}`,
-        description: `${item.count} unidade(s) restante(s) · estimativa de ${item.daysLeft} dia(s).`,
+        description: `${item.count} unidade(s) restante(s).`,
         time: 'Hoje',
       });
     });

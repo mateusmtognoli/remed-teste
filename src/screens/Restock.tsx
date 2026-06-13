@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Minus, Plus, Calendar, CheckCircle } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Minus, Plus, Calendar, CheckCircle, Package, Clock } from 'lucide-react';
 import { useMedications } from '../context/MedicationContext';
+import { PACKAGE_UNIT_LABELS } from '../utils/packageUnits';
 
 export default function Restock() {
   const { id } = useParams();
@@ -13,6 +13,7 @@ export default function Restock() {
   const [quantity, setQuantity] = useState(30);
 
   const item = inventory.find(i => i.id === id);
+  const unitLabel = item ? PACKAGE_UNIT_LABELS[item.type]?.plural ?? 'unidades' : 'unidades';
 
   const handleConfirm = () => {
     if (id) {
@@ -53,37 +54,37 @@ export default function Restock() {
       </header>
 
       <div className="space-y-6">
-        <div className="bg-slate-100 rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center overflow-hidden border border-slate-200/50">
-          <div className="w-full md:w-1/3 aspect-square rounded-2xl overflow-hidden bg-white relative p-4 flex items-center justify-center">
-            <img 
-              src="/img/foto_vitaminaD.png" 
-              alt="Medication" 
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div className="flex-1 w-full text-center md:text-left">
-            <span className="text-emerald-600 font-extrabold tracking-widest text-[10px] uppercase mb-1 block">Medicamento Selecionado</span>
-            <h2 className="text-2xl font-extrabold text-slate-900 mb-2">{item?.name || 'Medicamento'}</h2>
-            <p className="text-slate-500 text-sm leading-relaxed font-medium">Suplemento essencial para manutenção da saúde óssea e sistema imunológico.</p>
-          </div>
+        <div className="bg-slate-100 rounded-2xl p-6 border border-slate-200/50">
+          <span className="text-emerald-600 font-extrabold tracking-widest text-[10px] uppercase mb-1 block">Medicamento Selecionado</span>
+          <h2 className="text-2xl font-extrabold text-slate-900 mb-3">{item?.name || 'Medicamento'}</h2>
+          {item && (
+            <div className="flex gap-4 font-medium">
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <Package size={12} /> {item.count} {unitLabel} em estoque
+              </span>
+              <span className={`text-xs flex items-center gap-1 ${item.status === 'Crítico' ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                <Clock size={12} /> {item.daysLeft} dias restantes
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm">
           <div className="mb-10">
             <label className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Quantidade Recebida</label>
             <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              <button 
-                onClick={() => setQuantity(Math.max(0, quantity - 1))}
+              <button
+                onClick={() => setQuantity(Math.max(0, quantity - (item?.type === 'liquid' ? 10 : 1)))}
                 className="w-12 h-12 flex items-center justify-center bg-white rounded-xl text-emerald-600 shadow-sm hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
               >
                 <Minus size={24} />
               </button>
               <div className="flex flex-col items-center">
                 <span className="text-4xl font-extrabold text-slate-900 tracking-tighter">{quantity}</span>
-                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Unidades</span>
+                <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">{unitLabel}</span>
               </div>
-              <button 
-                onClick={() => setQuantity(quantity + 1)}
+              <button
+                onClick={() => setQuantity(quantity + (item?.type === 'liquid' ? 10 : 1))}
                 className="w-12 h-12 flex items-center justify-center bg-white rounded-xl text-emerald-600 shadow-sm hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
               >
                 <Plus size={24} />

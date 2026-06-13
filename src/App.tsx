@@ -21,6 +21,10 @@ import Security from './screens/Security';
 import NotificationPreferences from './screens/NotificationPreferences';
 import Subscription from './screens/Subscription';
 import AddDependent from './screens/AddDependent';
+import ChangePassword from './screens/ChangePassword';
+import TwoFactorAuth from './screens/TwoFactorAuth';
+import ActiveSessions from './screens/ActiveSessions';
+import DeleteAccount from './screens/DeleteAccount';
 import { AnimatePresence } from 'motion/react';
 import React from 'react';
 import ScrollToTop from './components/ScrollToTop';
@@ -68,6 +72,10 @@ function AnimatedRoutes() {
           <Route path="/notification-preferences" element={<PrivateRoute><NotificationPreferences /></PrivateRoute>} />
           <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
           <Route path="/add-dependent" element={<PrivateRoute><AddDependent /></PrivateRoute>} />
+          <Route path="/change-password" element={<PrivateRoute><ChangePassword /></PrivateRoute>} />
+          <Route path="/two-factor-auth" element={<PrivateRoute><TwoFactorAuth /></PrivateRoute>} />
+          <Route path="/active-sessions" element={<PrivateRoute><ActiveSessions /></PrivateRoute>} />
+          <Route path="/delete-account" element={<PrivateRoute><DeleteAccount /></PrivateRoute>} />
         </Routes>
       </AnimatePresence>
     </MedicationProvider>

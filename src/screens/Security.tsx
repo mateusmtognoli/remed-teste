@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Shield, Lock, Eye, Key, ChevronRight, UserCheck } from 'lucide-react';
+import { Shield, Lock, Key, ChevronRight, UserCheck } from 'lucide-react';
 
 export default function Security() {
+  const navigate = useNavigate();
   return (
     <Layout>
       <main className="max-w-md mx-auto space-y-8 pb-10">
@@ -18,26 +20,32 @@ export default function Security() {
         </section>
 
         <section className="space-y-4">
-          <SecurityItem 
-            icon={<Key size={20} />} 
-            title="Alterar Senha" 
+          <SecurityItem
+            icon={<Key size={20} />}
+            title="Alterar Senha"
             desc="Atualize sua senha de acesso periodicamente."
+            onClick={() => navigate('/change-password')}
           />
-          <SecurityItem 
-            icon={<Lock size={20} />} 
-            title="Autenticação em Duas Etapas" 
+          <SecurityItem
+            icon={<Lock size={20} />}
+            title="Autenticação em Duas Etapas"
             desc="Adicione uma camada extra de proteção."
             badge="RECOMENDADO"
+            onClick={() => navigate('/two-factor-auth')}
           />
-          <SecurityItem 
-            icon={<UserCheck size={20} />} 
-            title="Sessões Ativas" 
+          <SecurityItem
+            icon={<UserCheck size={20} />}
+            title="Sessões Ativas"
             desc="Veja onde sua conta está conectada."
+            onClick={() => navigate('/active-sessions')}
           />
         </section>
 
         <section>
-          <button className="w-full py-5 text-red-600 font-extrabold text-sm uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-colors">
+          <button
+            onClick={() => navigate('/delete-account')}
+            className="w-full py-5 text-red-600 font-extrabold text-sm uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-colors"
+          >
             Excluir Minha Conta
           </button>
         </section>
@@ -46,9 +54,9 @@ export default function Security() {
   );
 }
 
-function SecurityItem({ icon, title, desc, badge }: { icon: React.ReactNode, title: string, desc: string, badge?: string }) {
+function SecurityItem({ icon, title, desc, badge, onClick }: { icon: React.ReactNode, title: string, desc: string, badge?: string, onClick?: () => void }) {
   return (
-    <button className="w-full flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md active:scale-[0.99] transition-all group text-left">
+    <button onClick={onClick} className="w-full flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md active:scale-[0.99] transition-all group text-left">
       <div className="flex items-center gap-4">
         <div className="text-slate-700 bg-slate-50 p-2.5 rounded-xl group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-colors">
           {icon}
