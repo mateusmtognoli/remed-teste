@@ -1,16 +1,15 @@
 import React from 'react';
 import Layout from '../components/Layout';
-import { Bell, Pill, Droplets, Calendar, MessageSquare, Volume2, ShieldAlert } from 'lucide-react';
+import { Bell, Pill, Moon, ShieldAlert, FileText, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function NotificationPreferences() {
   const [settings, setSettings] = React.useState({
     medications: true,
     stock: true,
-    hydration: false,
-    appointments: true,
-    caregiverMsgs: true,
-    emergency: true
+    dailySummary: false,
+    monthlyReport: true,
+    adherence: true,
   });
 
   const toggle = (key: keyof typeof settings) => {
@@ -48,54 +47,45 @@ export default function NotificationPreferences() {
                 active={settings.stock} 
                 onClick={() => toggle('stock')}
               />
-              <PreferenceToggle 
-                icon={<Droplets size={18} />} 
-                title="Sincronizar Hidratação" 
-                active={settings.hydration} 
-                onClick={() => toggle('hydration')}
+              <PreferenceToggle
+                icon={<Moon size={18} />}
+                title="Resumo Diário"
+                desc="Receba às 00:00h um resumo das ações do dia."
+                active={settings.dailySummary}
+                onClick={() => toggle('dailySummary')}
               />
             </div>
           </div>
 
-          <div className="p-4 pt-0">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 mt-6">Sistema e Social</h3>
-            <div className="space-y-4">
-              <PreferenceToggle 
-                icon={<Calendar size={18} />} 
-                title="Agenda Médica" 
-                active={settings.appointments} 
-                onClick={() => toggle('appointments')}
-              />
-              <PreferenceToggle 
-                icon={<MessageSquare size={18} />} 
-                title="Mensagens de Cuidadores" 
-                active={settings.caregiverMsgs} 
-                onClick={() => toggle('caregiverMsgs')}
-              />
-              <PreferenceToggle 
-                icon={<Volume2 size={18} />} 
-                title="Alertas Críticos (Surg)" 
-                active={settings.emergency} 
-                onClick={() => toggle('emergency')}
-              />
-            </div>
-          </div>
         </section>
 
-        <section className="bg-emerald-600 rounded-3xl p-6 text-white text-center shadow-lg shadow-emerald-200">
-          <p className="font-extrabold text-sm mb-4">Gostaria de silenciar tudo por um tempo?</p>
-          <button className="w-full bg-emerald-950 text-white py-4 rounded-2xl font-extrabold shadow-sm active:scale-95 transition-all">
-            Ativar Modo Foco (2h)
-          </button>
+        <section className="bg-slate-50 rounded-[2.5rem] p-4 space-y-2">
+          <div className="p-4">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Alertas de Relatórios</h3>
+            <div className="space-y-4">
+              <PreferenceToggle
+                icon={<FileText size={18} />}
+                title="Relatório Mensal"
+                active={settings.monthlyReport}
+                onClick={() => toggle('monthlyReport')}
+              />
+              <PreferenceToggle
+                icon={<TrendingUp size={18} />}
+                title="Adesão ao Tratamento"
+                active={settings.adherence}
+                onClick={() => toggle('adherence')}
+              />
+            </div>
+          </div>
         </section>
       </main>
     </Layout>
   );
 }
 
-function PreferenceToggle({ icon, title, active, onClick }: { icon: React.ReactNode, title: string, active: boolean, onClick: () => void }) {
+function PreferenceToggle({ icon, title, desc, active, onClick }: { icon: React.ReactNode, title: string, desc?: string, active: boolean, onClick: () => void }) {
   return (
-    <div 
+    <div
       onClick={onClick}
       className="flex items-center justify-between group cursor-pointer"
     >
@@ -103,7 +93,10 @@ function PreferenceToggle({ icon, title, active, onClick }: { icon: React.ReactN
         <div className={`p-2 rounded-xl transition-colors ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-400'}`}>
           {icon}
         </div>
-        <span className="font-extrabold text-sm text-slate-800">{title}</span>
+        <div>
+          <span className="font-extrabold text-sm text-slate-800 block">{title}</span>
+          {desc && <span className="text-xs text-slate-400 font-medium">{desc}</span>}
+        </div>
       </div>
       <div className={`w-12 h-6 rounded-full relative transition-all ${active ? 'bg-emerald-500' : 'bg-slate-300'}`}>
         <motion.div 

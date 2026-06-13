@@ -6,7 +6,7 @@ import { useMedications } from '../context/MedicationContext';
 import { generateMonthlyPDF } from '../utils/generatePDF';
 
 export default function History() {
-  const { medications, inventory, userRole, activeDependent } = useMedications();
+  const { medications, inventory, activeDependent } = useMedications();
   const [filter, setFilter] = useState('Todas');
 
   const today = new Date();
@@ -27,12 +27,7 @@ export default function History() {
   const monthYearLabel = month.charAt(0).toUpperCase() + month.slice(1) + '/' + today.getFullYear();
 
   const filteredByDependent = medications
-    .filter(m => {
-      if ((userRole === 'responsavel' || userRole === 'emparelhado') && activeDependent) {
-        return m.dependentId === activeDependent.id;
-      }
-      return m.dependentId === '2';
-    })
+    .filter(m => m.dependentId === activeDependent?.id)
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const filteredLogs = (selectedDate === todayStr ? filteredByDependent : filteredByDependent.map(m => ({
@@ -121,7 +116,6 @@ export default function History() {
                   {log.status}
                 </div>
                 {log.confirmTime && <span className="text-[9px] text-slate-300 font-bold">Confirmado às {log.confirmTime}</span>}
-                {log.status === 'Atrasada' && <span className="text-[9px] text-red-400 font-bold italic">Notificar família?</span>}
               </div>
             </div>
           );

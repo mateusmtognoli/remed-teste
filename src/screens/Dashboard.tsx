@@ -1,26 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Clock, CheckCircle, AlertTriangle, Activity, Package } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Clock, CheckCircle, AlertTriangle, Activity, Package, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useMedications } from '../context/MedicationContext';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { medications, updateStatus, userRole, activeDependent, setActiveDependent, dependents } = useMedications();
+  const { medications, inventory, updateStatus, removeMedication, userRole, activeDependent, setActiveDependent, dependents } = useMedications();
+  const [medToDelete, setMedToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const confirmRemove = () => {
+    if (medToDelete) removeMedication(medToDelete.id);
+    setMedToDelete(null);
+  };
 
   const filteredMedications = medications
-    .filter(m => {
-      if ((userRole === 'responsavel' || userRole === 'emparelhado') && activeDependent) {
-        return m.dependentId === activeDependent.id;
-      }
-      return m.dependentId === '2';
-    })
+    .filter(m => m.dependentId === activeDependent?.id)
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const totalDoses = filteredMedications.length;
   const takenDoses = filteredMedications.filter(m => m.status === 'Tomada').length;
   const progressPercent = totalDoses > 0 ? (takenDoses / totalDoses) * 100 : 0;
+
+  const minDaysLeft = inventory.length > 0 ? Math.min(...inventory.map(i => i.daysLeft)) : null;
 
   return (
     <Layout>
@@ -133,14 +136,25 @@ export default function Dashboard() {
                     {med.time} {med.status === 'Atrasada' ? '(Atrasada)' : ''}
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${
-                  med.status === 'Tomada' ? 'bg-[#b7ebd7] text-[#00714d]' :
-                  med.status === 'Atrasada' ? 'bg-red-100 text-red-700' :
-                  med.status === 'Pulada' ? 'bg-slate-100 text-slate-500' :
-                  'bg-emerald-50 text-emerald-700'
-                }`}>
-                  {med.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${
+                    med.status === 'Tomada' ? 'bg-[#b7ebd7] text-[#00714d]' :
+                    med.status === 'Atrasada' ? 'bg-red-100 text-red-700' :
+                    med.status === 'Pulada' ? 'bg-slate-100 text-slate-500' :
+                    'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    {med.status}
+                  </span>
+                  {userRole !== 'emparelhado' && (
+                    <button
+                      onClick={() => setMedToDelete({ id: med.id, name: med.name })}
+                      className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      aria-label={`Excluir ${med.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {med.status === 'Tomada' ? (
@@ -155,7 +169,7 @@ export default function Dashboard() {
               ) : userRole === 'emparelhado' ? (
                 <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-xl flex items-center gap-2 text-slate-500 text-xs font-semibold leading-tight mt-1">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 shrink-0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span>Dose pendente de confirmação pelo seu responsável (Reinaldo Joaquim).</span>
+                  <span>Dose pendente de confirmação pelo seu responsável{activeDependent?.responsavelName ? ` (${activeDependent.responsavelName})` : ''}.</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 mt-2">
@@ -190,25 +204,71 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 mt-8">
-        <button 
-          onClick={() => navigate('/stock')}
-          className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:scale-[1.02] active:scale-95 transition-all group"
-        >
-          <div className="bg-emerald-100/50 p-2 rounded-xl group-hover:bg-emerald-100 transition-colors">
-            <Package className="w-6 h-6 text-emerald-600" />
+      {userRole !== 'emparelhado' && (
+        <section className="grid grid-cols-2 gap-4 mt-8">
+          <button
+            onClick={() => navigate('/stock')}
+            className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:scale-[1.02] active:scale-95 transition-all group"
+          >
+            <div className="bg-emerald-100/50 p-2 rounded-xl group-hover:bg-emerald-100 transition-colors">
+              <Package className="w-6 h-6 text-emerald-600" />
+            </div>
+            <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Gerenciar Estoque</p>
+            <p className="text-2xl font-extrabold text-slate-900">{minDaysLeft !== null ? `${minDaysLeft} dias` : '—'}</p>
+          </button>
+          <div className="bg-white p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-[0.98]">
+            <div className="bg-emerald-50 p-2 rounded-xl">
+              <Activity className="w-6 h-6 text-emerald-600" />
+            </div>
+            <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Adesão</p>
+            <p className="text-2xl font-extrabold text-slate-900">{totalDoses > 0 ? `${Math.round(progressPercent)}%` : '—'}</p>
           </div>
-          <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Gerenciar Estoque</p>
-          <p className="text-2xl font-extrabold text-slate-900">3 dias</p>
-        </button>
-        <div className="bg-white p-5 rounded-3xl shadow-sm flex flex-col items-center justify-center text-center space-y-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-[0.98]">
-          <div className="bg-emerald-50 p-2 rounded-xl">
-            <Activity className="w-6 h-6 text-emerald-600" />
-          </div>
-          <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest">Adesão</p>
-          <p className="text-2xl font-extrabold text-slate-900">94%</p>
-        </div>
-      </section>
+        </section>
+      )}
+
+      <AnimatePresence>
+        {medToDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMedToDelete(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60]"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 100, scale: 0.95 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white rounded-[2.5rem] shadow-2xl z-[70] overflow-hidden"
+            >
+              <div className="p-8 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-5">
+                  <Trash2 size={28} />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 mb-2">Excluir medicamento?</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed mb-8">
+                  Tem certeza que deseja excluir <strong className="text-slate-700">"{medToDelete.name}"</strong>? Essa ação não pode ser desfeita.
+                </p>
+                <div className="w-full grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setMedToDelete(null)}
+                    className="py-4 bg-slate-100 text-slate-600 font-extrabold rounded-2xl active:scale-95 transition-all hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmRemove}
+                    className="py-4 bg-red-500 text-white font-extrabold rounded-2xl shadow-lg shadow-red-100 active:scale-95 transition-all hover:bg-red-600"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </Layout>
   );
 }

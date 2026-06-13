@@ -5,7 +5,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\MATEUS\\\\FATEC\\\\ReMed\\\\src\" -Recurse -Include \"*.tsx\", \"*.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(grep -rn \"\\\\d\\\\{1,2\\\\}/\\\\d\\\\{1,2\\\\}/\\\\d\\\\{4\\\\}\" \"c:\\\\MATEUS\\\\FATEC\\\\ReMed\\\\src\" --include=\"*.tsx\" --include=\"*.ts\")",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Recurse -Path src -Force)",
+      "Bash(Sort-Object)"
     ]
   }
 }

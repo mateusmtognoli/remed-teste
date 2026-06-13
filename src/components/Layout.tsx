@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, PlusCircle, History, User, Bell, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useMedications } from '../context/MedicationContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,14 @@ interface LayoutProps {
 
 export default function Layout({ children, showTopBar = true, showBottomNav = true }: LayoutProps) {
   const navigate = useNavigate();
+  const { medications, inventory, activeDependent } = useMedications();
+
+  const hasNewNotifications =
+    medications.some(m =>
+      m.dependentId === activeDependent?.id &&
+      (m.status === 'Pendente' || m.status === 'Atrasada')
+    ) ||
+    inventory.some(item => item.status !== null);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#191c1a]">
@@ -30,7 +39,9 @@ export default function Layout({ children, showTopBar = true, showBottomNav = tr
               onClick={() => navigate('/notifications')}
             >
               <Bell className="w-6 h-6 text-emerald-600" />
-              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              {hasNewNotifications && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              )}
             </button>
           </div>
         </header>

@@ -12,19 +12,15 @@ export default function ForgotPassword() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      setError('Por favor, insira o seu e-mail.');
-      return;
-    }
+    if (!email) { setError('Por favor, insira o seu e-mail.'); return; }
 
     setLoading(true);
     setError(null);
 
-    // Mock API call simulation
     setTimeout(() => {
       setLoading(false);
       setSent(true);
-    }, 1500);
+    }, 1200);
   };
 
   return (

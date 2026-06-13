@@ -7,6 +7,7 @@ import { useMedications } from '../context/MedicationContext';
 export default function AddMedication() {
   const navigate = useNavigate();
   const { addMedication, activeDependent, userRole } = useMedications();
+  const responsavelName = activeDependent?.responsavelName || 'seu responsável';
 
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
@@ -16,7 +17,7 @@ export default function AddMedication() {
   
   const [repeat, setRepeat] = useState(true);
   const [sound, setSound] = useState(false);
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev => 
@@ -50,7 +51,7 @@ export default function AddMedication() {
           <div className="space-y-2">
             <h3 className="text-2xl font-black text-slate-800 tracking-tight">Recurso Limitado</h3>
             <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-sm mx-auto">
-              Como dispositivo emparelhado, a inserção ou alteração de tratamentos e receitas deve ser realizada pelo seu cuidador principal (<strong>Reinaldo Joaquim</strong>) no celular dele.
+              Como dispositivo emparelhado, a inserção ou alteração de tratamentos e receitas deve ser realizada pelo seu cuidador principal (<strong>{responsavelName}</strong>) no celular dele.
             </p>
           </div>
           <button 

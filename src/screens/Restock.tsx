@@ -8,7 +8,8 @@ import { useMedications } from '../context/MedicationContext';
 export default function Restock() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { inventory, updateInventoryCount, userRole } = useMedications();
+  const { inventory, updateInventoryCount, userRole, activeDependent } = useMedications();
+  const responsavelName = activeDependent?.responsavelName || 'seu responsável';
   const [quantity, setQuantity] = useState(30);
 
   const item = inventory.find(i => i.id === id);
@@ -30,7 +31,7 @@ export default function Restock() {
           <div className="space-y-2">
             <h3 className="text-2xl font-black text-slate-800 tracking-tight">Recurso Limitado</h3>
             <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-sm mx-auto">
-              Como dispositivo emparelhado, o reabastecimento ou alteração de estoque deve ser realizado pelo seu cuidador principal (<strong>Reinaldo Joaquim</strong>) no celular dele.
+              Como dispositivo emparelhado, o reabastecimento ou alteração de estoque deve ser realizado pelo seu cuidador principal (<strong>{responsavelName}</strong>) no celular dele.
             </p>
           </div>
           <button 

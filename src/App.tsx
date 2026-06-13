@@ -22,36 +22,52 @@ import NotificationPreferences from './screens/NotificationPreferences';
 import Subscription from './screens/Subscription';
 import AddDependent from './screens/AddDependent';
 import { AnimatePresence } from 'motion/react';
-import React, { useState, useEffect } from 'react';
-import LoadingScreen from './components/LoadingScreen';
+import React from 'react';
 import ScrollToTop from './components/ScrollToTop';
-
 import { MedicationProvider } from './context/MedicationContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
 
 function AnimatedRoutes() {
+  const { user } = useAuth();
   const location = useLocation();
   return (
-    <MedicationProvider>
+    <MedicationProvider key={user?.email ?? 'guest'}>
       <AnimatePresence mode="wait">
         <Routes location={location}>
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/additional-data" element={<AdditionalData />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/stock" element={<Stock />} />
-          <Route path="/add-stock" element={<AddStockMedication />} />
-          <Route path="/add-medication" element={<AddMedication />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/restock/:id" element={<Restock />} />
-          <Route path="/manage-access" element={<ManageAccess />} />
-          <Route path="/security" element={<Security />} />
-          <Route path="/notification-preferences" element={<NotificationPreferences />} />
-          <Route path="/subscription" element={<Subscription />} />
-          <Route path="/add-dependent" element={<AddDependent />} />
+
+          {/* Rotas públicas — redireciona para /dashboard se já logado */}
+          <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/signup" element={<PublicOnlyRoute><SignUp /></PublicOnlyRoute>} />
+          <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+
+          {/* Rotas privadas — redireciona para /login se não autenticado */}
+          <Route path="/additional-data" element={<PrivateRoute><AdditionalData /></PrivateRoute>} />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/stock" element={<PrivateRoute><Stock /></PrivateRoute>} />
+          <Route path="/add-stock" element={<PrivateRoute><AddStockMedication /></PrivateRoute>} />
+          <Route path="/add-medication" element={<PrivateRoute><AddMedication /></PrivateRoute>} />
+          <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+          <Route path="/restock/:id" element={<PrivateRoute><Restock /></PrivateRoute>} />
+          <Route path="/manage-access" element={<PrivateRoute><ManageAccess /></PrivateRoute>} />
+          <Route path="/security" element={<PrivateRoute><Security /></PrivateRoute>} />
+          <Route path="/notification-preferences" element={<PrivateRoute><NotificationPreferences /></PrivateRoute>} />
+          <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
+          <Route path="/add-dependent" element={<PrivateRoute><AddDependent /></PrivateRoute>} />
         </Routes>
       </AnimatePresence>
     </MedicationProvider>
@@ -59,23 +75,12 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
-  const [initialLoading, setInitialLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialLoading(false);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (initialLoading) {
-    return <LoadingScreen />;
-  }
-
   return (
     <BrowserRouter>
-      <ScrollToTop />
-      <AnimatedRoutes />
+      <AuthProvider>
+        <ScrollToTop />
+        <AnimatedRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

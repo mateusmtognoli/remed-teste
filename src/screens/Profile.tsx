@@ -9,10 +9,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useMedications } from '../context/MedicationContext';
 import { generateCombinedPDF } from '../utils/generatePDF';
+import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { userRole, activeDependent, unpairDevice, medications, dependents, inventory } = useMedications();
+  const { signOut, user } = useAuth();
+  const userName = (user?.user_metadata?.name as string | undefined)
+    || user?.email?.split('@')[0]
+    || 'Usuário';
 
   const today = new Date();
   const month = today.toLocaleDateString('pt-BR', { month: 'long' });
@@ -35,10 +40,9 @@ export default function Profile() {
   const goalMet = overallPct >= 80;
   const [selectedPerson, setSelectedPerson] = React.useState<any>(null);
 
-  const handleLogout = () => {
-    if (userRole === 'emparelhado') {
-      unpairDevice();
-    }
+  const handleLogout = async () => {
+    if (userRole === 'emparelhado') unpairDevice();
+    await signOut();
     navigate('/login');
   };
   const [alertSettings, setAlertSettings] = React.useState({
@@ -51,27 +55,20 @@ export default function Profile() {
     setAlertSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const mockDependentData = activeDependent?.id === '1' ? {
-    name: 'Teresinha Andrade',
-    img: '/img/foto_teresinha.png',
-    blood: 'O+',
-    height: '1.62 m',
-    weight: '65 kg',
-    age: '74 anos',
-    cpf: '987.654.321-00',
-    email: 'teresinha@email.com',
-    phone: '(11) 98765-1122',
-  } : {
-    name: 'Antônio Andrade',
-    img: activeDependent?.img || '/img/foto_antonio.png',
-    blood: 'AB+',
-    height: '1.70 m',
-    weight: '77 kg',
-    age: '70 anos',
-    cpf: '123.456.789-00',
-    email: 'antonioandrade@email.com',
-    phone: '(11) 98765-4321',
-  };
+  const depProfileData = activeDependent ? {
+    name: activeDependent.name,
+    img: activeDependent.img ?? '',
+    pairingCode: activeDependent.pairingCode ?? '—',
+    responsavelName: activeDependent.responsavelName ?? '',
+    phone: activeDependent.phone ?? '—',
+    bloodType: activeDependent.bloodType ?? '—',
+    height: activeDependent.height ?? '—',
+    weight: activeDependent.weight ?? '—',
+    age: activeDependent.age ?? '—',
+    healthInsurance: activeDependent.healthInsurance ?? '—',
+    conditions: activeDependent.conditions ?? '—',
+    allergies: activeDependent.allergies ?? '—',
+  } : null;
 
   if (userRole === 'responsavel') {
     return (
@@ -80,24 +77,20 @@ export default function Profile() {
           {/* Header Profile */}
           <section className="flex flex-col items-center pt-6 text-center">
             <div className="relative mb-6">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl">
-                <img 
-                  src="/img/foto_reinaldo.png" 
-                  alt="Reinaldo Joaquim" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <UserAvatar name={userName} />
               <div className="absolute bottom-1 right-1 bg-emerald-600 p-1.5 rounded-full border-2 border-white shadow-md">
                 <Shield className="w-4 h-4 text-white" fill="currentColor" />
               </div>
             </div>
-            
-            <span className="text-emerald-700 font-extrabold uppercase text-[10px] tracking-widest mb-1">Perfil Administrativo</span>
-            <h2 className="text-3xl font-extrabold text-slate-900 leading-tight">Reinaldo Joaquim</h2>
-            <p className="text-slate-500 font-medium text-sm mt-1">Gestor de Cuidado • CRM-SP Ativo</p>
-            
+
+            <span className="text-emerald-700 font-extrabold uppercase text-[10px] tracking-widest mb-1">Perfil Responsável</span>
+            <h2 className="text-3xl font-extrabold text-slate-900 leading-tight">{userName}</h2>
+            <p className="text-slate-500 font-medium text-sm mt-1">{user?.email}</p>
+
             <div className="flex gap-2 mt-4">
-              <span className="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full text-[11px] font-bold">3 Dependentes Ativos</span>
+              <span className="bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full text-[11px] font-bold">
+                {dependents.length} Dependente{dependents.length !== 1 ? 's' : ''} {dependents.length > 0 ? 'Ativo' + (dependents.length !== 1 ? 's' : '') : ''}
+              </span>
               <span className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-[11px] font-bold">Plano Premium</span>
             </div>
           </section>
@@ -118,36 +111,39 @@ export default function Profile() {
             </div>
 
             <div className="space-y-3">
-              <DependentItem 
-                img="/img/foto_teresinha.png"
-                name="Teresinha Andrade"
-                status="ESTÁVEL"
-                desc="Próxima dose: 14:00 (Losartana)"
-                statusColor="text-emerald-500"
-                onClick={() => setSelectedPerson({
-                  name: 'Teresinha Andrade',
-                  role: 'Dependente',
-                  img: '/img/foto_teresinha.png',
-                  details: 'Hipertensão Arterial, Diabetes Tipo 2',
-                  contact: '(11) 98765-4321',
-                  location: 'São Paulo, SP'
-                })}
-              />
-              <DependentItem 
-                img="/img/foto_antonio.png"
-                name="Antônio Andrade"
-                status="HISTÓRICO"
-                desc="Antibiótico finalizado há 2 dias"
-                statusColor="text-slate-400"
-                onClick={() => setSelectedPerson({
-                  name: 'Antônio Andrade',
-                  role: 'Dependente',
-                  img: '/img/foto_antonio.png',
-                  details: 'Tratamento de pneumonia concluído há 48h.',
-                  contact: '(11) 97765-1122',
-                  location: 'São Paulo, SP'
-                })}
-              />
+              {dependents.length === 0 ? (
+                <div className="py-10 flex flex-col items-center gap-3 text-center">
+                  <Users className="w-12 h-12 text-slate-200" />
+                  <p className="text-sm font-bold text-slate-400">Nenhum dependente cadastrado.</p>
+                  <p className="text-xs text-slate-400">Use o <strong className="text-emerald-600">+</strong> acima para adicionar.</p>
+                </div>
+              ) : (
+                dependents.map(dep => {
+                  const depMeds = medications.filter(m => m.dependentId === dep.id);
+                  const hasLate = depMeds.some(m => m.status === 'Atrasada');
+                  const nextPending = depMeds.find(m => m.status === 'Pendente');
+                  return (
+                    <DependentItem
+                      key={dep.id}
+                      img={dep.img}
+                      name={dep.name}
+                      status={hasLate ? 'ATENÇÃO' : 'ESTÁVEL'}
+                      desc={nextPending
+                        ? `Próxima dose: ${nextPending.time} (${nextPending.name})`
+                        : 'Sem doses pendentes hoje'}
+                      statusColor={hasLate ? 'text-amber-500' : 'text-emerald-500'}
+                      onClick={() => setSelectedPerson({
+                        name: dep.name,
+                        role: 'Dependente',
+                        img: dep.img,
+                        details: `Código de emparelhamento: ${dep.pairingCode ?? '—'}`,
+                        contact: '—',
+                        location: '—',
+                      })}
+                    />
+                  );
+                })
+              )}
             </div>
           </section>
 
@@ -226,11 +222,13 @@ export default function Profile() {
                 label="Preferências de Notificação" 
                 onClick={() => navigate('/notification-preferences')}
               />
-              <ProfileLink 
-                icon={<CreditCard size={20} />} 
-                label="Assinatura e Pagamento" 
+              {/* Temporariamente oculto — funcionalidade em desenvolvimento.
+              <ProfileLink
+                icon={<CreditCard size={20} />}
+                label="Assinatura e Pagamento"
                 onClick={() => navigate('/subscription')}
               />
+              */}
               <button 
                 onClick={handleLogout}
                 className="w-full flex items-center gap-4 p-5 text-red-700 bg-transparent hover:bg-white rounded-2xl transition-all group"
@@ -247,20 +245,31 @@ export default function Profile() {
     );
   }
 
+  if (!depProfileData) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+          <p className="text-slate-400 font-medium">Nenhum dependente selecionado.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <main className="max-w-4xl mx-auto space-y-10 pb-10">
         <section className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start pt-4">
           <div className="md:col-span-4 relative group">
-            <div className="aspect-square rounded-[2rem] overflow-hidden shadow-2xl">
-              <img 
-                src={mockDependentData.img} 
-                alt={mockDependentData.name} 
-                className="w-full h-full object-cover"
-              />
+            <div className="aspect-square rounded-[2rem] overflow-hidden shadow-2xl bg-emerald-100 flex items-center justify-center">
+              {depProfileData.img
+                ? <img src={depProfileData.img} alt={depProfileData.name} className="w-full h-full object-cover" />
+                : <span className="text-6xl font-extrabold text-emerald-600">
+                    {depProfileData.name.split(' ').slice(0,2).map(p => p[0].toUpperCase()).join('')}
+                  </span>
+              }
             </div>
             <div className="absolute -bottom-4 -right-4 bg-emerald-500 text-white p-4 rounded-2xl shadow-lg border-2 border-white">
-              <p className="font-extrabold text-xl leading-none">{mockDependentData.blood}</p>
+              <p className="font-extrabold text-xl leading-none">{depProfileData.bloodType}</p>
               <p className="text-[10px] uppercase tracking-widest font-extrabold opacity-80 pt-1">Tipo Sanguíneo</p>
             </div>
           </div>
@@ -270,7 +279,7 @@ export default function Profile() {
               <span className="text-emerald-600 font-extrabold uppercase tracking-widest text-[10px]">
                 {userRole === 'emparelhado' ? 'Dispositivo Emparelhado' : 'Perfil Dependente'}
               </span>
-              <h2 className="text-4xl font-extrabold tracking-tighter text-slate-900">{mockDependentData.name}</h2>
+              <h2 className="text-4xl font-extrabold tracking-tighter text-slate-900">{depProfileData.name}</h2>
               <p className="text-slate-500 text-lg max-w-md font-medium leading-tight">Paciente regular. Plano de saúde ativo e histórico atualizado.</p>
             </div>
 
@@ -278,17 +287,17 @@ export default function Profile() {
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer group active:scale-95">
                 <Ruler className="text-emerald-500 mb-2 w-5 h-5 group-hover:scale-110 transition-transform" />
                 <p className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">Altura</p>
-                <p className="text-xl font-extrabold text-slate-800">{mockDependentData.height}</p>
+                <p className="text-xl font-extrabold text-slate-800">{depProfileData.height}</p>
               </div>
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer group active:scale-95">
                 <Weight className="text-emerald-500 mb-2 w-5 h-5 group-hover:scale-110 transition-transform" />
                 <p className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">Peso</p>
-                <p className="text-xl font-extrabold text-slate-800">{mockDependentData.weight}</p>
+                <p className="text-xl font-extrabold text-slate-800">{depProfileData.weight}</p>
               </div>
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer group active:scale-95 col-span-2 sm:col-span-1">
                 <Cake className="text-emerald-500 mb-2 w-5 h-5 group-hover:scale-110 transition-transform" />
                 <p className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">Idade</p>
-                <p className="text-xl font-extrabold text-slate-800">{mockDependentData.age}</p>
+                <p className="text-xl font-extrabold text-slate-800">{depProfileData.age}</p>
               </div>
             </div>
           </div>
@@ -305,10 +314,10 @@ export default function Profile() {
           </div>
           <div className="bg-slate-100/50 rounded-[2rem] p-8 grid grid-cols-1 md:grid-cols-2 gap-8 border border-slate-200/50">
             {[
-              { label: 'Nome Completo', value: mockDependentData.name },
-              { label: 'CPF', value: mockDependentData.cpf },
-              { label: 'E-mail', value: mockDependentData.email },
-              { label: 'Telefone', value: mockDependentData.phone },
+              { label: 'Nome Completo', value: depProfileData.name },
+              { label: 'Telefone', value: depProfileData.phone },
+              { label: 'Convênio Médico', value: depProfileData.healthInsurance },
+              { label: 'Código de Emparelhamento', value: depProfileData.pairingCode },
             ].map((field, i) => (
               <div key={i} className="space-y-1">
                 <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{field.label}</label>
@@ -329,7 +338,10 @@ export default function Profile() {
                 <h4 className="font-extrabold text-lg text-slate-800">Alergias</h4>
               </div>
               <div className="flex flex-wrap gap-2">
-                {['Penicilina', 'Lactose', 'Aspirina'].map(tag => (
+                {(depProfileData.allergies !== '—' && depProfileData.allergies
+                  ? depProfileData.allergies.split(/[,;\n\s]+/).map(s => s.trim()).filter(Boolean)
+                  : ['—']
+                ).map(tag => (
                   <span key={tag} className="bg-slate-50 px-4 py-1.5 rounded-full text-xs font-bold text-slate-600 border border-slate-100">{tag}</span>
                 ))}
               </div>
@@ -346,7 +358,10 @@ export default function Profile() {
                 <h4 className="font-extrabold text-lg text-slate-800">Condições Crônicas</h4>
               </div>
               <ul className="space-y-3">
-                {['Hipertensão Arterial', 'Asma Leve'].map(item => (
+                {(depProfileData.conditions !== '—' && depProfileData.conditions
+                  ? depProfileData.conditions.split(/[,;\n\s]+/).map(s => s.trim()).filter(Boolean)
+                  : ['—']
+                ).map(item => (
                   <li key={item} className="flex items-center gap-3 text-sm font-bold text-slate-600">
                     <span className="w-2 h-2 bg-emerald-500 rounded-full" /> {item}
                   </li>
@@ -374,48 +389,30 @@ export default function Profile() {
                 active={alertSettings.hydration} 
                 onClick={() => toggleSetting('hydration')}
               />
-              <AlertToggle 
-                icon={<Calendar />} 
-                title="Consultas Agendadas" 
-                desc="Aviso 24h e 1h antes do horário" 
-                active={alertSettings.appointments} 
-                onClick={() => toggleSetting('appointments')}
-              />
             </div>
           </div>
         </section>
 
-        <section className="space-y-6">
-          <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Cuidadores Associados</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <CaregiverCard 
-                img="/img/foto_medica.png" 
-                name="Dra. Joana Mello" 
-                role="Médica Responsável" 
+        {depProfileData && (
+          <section className="space-y-6">
+            <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Cuidador Associado</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <CaregiverCard
+                img=""
+                name={depProfileData.responsavelName || localStorage.getItem('remed_user_name') || 'Responsável'}
+                role="Responsável Principal"
                 onClick={() => setSelectedPerson({
-                  name: 'Dra. Joana Mello',
-                  role: 'Médica Responsável',
-                  img: '/img/foto_medica.png',
-                  details: 'CRM-SP 123456 • Especialista em Geriatria',
-                  contact: '(11) 99988-7766',
-                  location: 'Clínica ReMed - Unidade Paulista'
+                  name: depProfileData.responsavelName || localStorage.getItem('remed_user_name') || 'Responsável',
+                  role: 'Responsável Principal',
+                  img: '',
+                  details: 'Gerencia os medicamentos e o histórico de saúde.',
+                  contact: '—',
+                  location: '—',
                 })}
               />
-              <CaregiverCard 
-                img="/img/foto_reinaldo.png" 
-                name="Reinaldo Joaquim" 
-                role="Cuidador Principal" 
-                onClick={() => setSelectedPerson({
-                  name: 'Reinaldo Joaquim',
-                  role: 'Cuidador Principal',
-                  img: '/img/foto_reinaldo.png',
-                  details: 'Familiar Responsável • Treinamento em Primeiros Socorros',
-                  contact: '(11) 96655-4433',
-                  location: 'Residência'
-                })}
-              />
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
         <section className="pt-4">
           <button 
@@ -519,14 +516,27 @@ function PersonModal({ person, onClose }: { person: any, onClose: () => void }) 
   );
 }
 
-function DependentItem({ img, name, status, desc, statusColor, onClick }: { img: string, name: string, status: string, desc: string, statusColor: string, onClick: () => void }) {
+function UserAvatar({ name }: { name: string }) {
+  const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
   return (
-    <div 
+    <div className="w-32 h-32 rounded-full bg-emerald-600 flex items-center justify-center border-4 border-white shadow-xl">
+      <span className="text-4xl font-extrabold text-white">{initials}</span>
+    </div>
+  );
+}
+
+function DependentItem({ img, name, status, desc, statusColor, onClick }: { img: string, name: string, status: string, desc: string, statusColor: string, onClick: () => void }) {
+  const initials = name.split(' ').slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
+  return (
+    <div
       onClick={onClick}
       className="bg-white p-5 rounded-3xl shadow-sm flex items-center gap-4 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group border border-slate-100"
     >
-      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-50 shrink-0">
-        <img src={img} alt={name} className="w-full h-full object-cover" />
+      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-50 shrink-0 bg-emerald-100 flex items-center justify-center">
+        {img
+          ? <img src={img} alt={name} className="w-full h-full object-cover" />
+          : <span className="text-xl font-extrabold text-emerald-700">{initials}</span>
+        }
       </div>
       <div className="flex-grow">
         <div className="flex justify-between items-start">
@@ -585,13 +595,17 @@ function AlertToggle({ icon, title, desc, active, onClick }: { icon: React.React
 }
 
 function CaregiverCard({ img, name, role, onClick }: { img: string, name: string, role: string, onClick: () => void }) {
+  const initials = name.split(' ').slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
   return (
-    <div 
+    <div
       onClick={onClick}
       className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
     >
-      <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-50 flex-shrink-0 group-hover:scale-105 transition-transform">
-        <img src={img} alt={name} className="w-full h-full object-cover" />
+      <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-50 flex-shrink-0 group-hover:scale-105 transition-transform bg-emerald-100 flex items-center justify-center">
+        {img
+          ? <img src={img} alt={name} className="w-full h-full object-cover" />
+          : <span className="text-lg font-extrabold text-emerald-700">{initials}</span>
+        }
       </div>
       <div className="flex-grow">
         <p className="font-extrabold text-slate-800 leading-tight underline decoration-emerald-200">{name}</p>

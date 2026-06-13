@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, MapPin, Hospital, Calendar, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useMedications } from '../context/MedicationContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdditionalData() {
   const navigate = useNavigate();
   const { userRole } = useMedications();
+  const { user } = useAuth();
   const [bloodType, setBloodType] = useState<string | null>(null);
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const maskCpf = (value: string) => {
     return value
@@ -52,6 +55,15 @@ export default function AdditionalData() {
 
   const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-[#f0fdfa]">
+        <img src="/img/logo_remed.png" alt="ReMed" className="w-48 h-auto object-contain mb-8" />
+        <p className="text-emerald-600 font-bold animate-pulse">Carregando...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-10">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center gap-2">
@@ -65,13 +77,18 @@ export default function AdditionalData() {
 
       <main className="px-6 pt-8 max-w-md mx-auto">
         <section className="mb-8">
-          <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Dados Complementares</h1>
+          {user?.user_metadata?.name && (
+            <p className="text-emerald-600 font-extrabold text-sm uppercase tracking-widest mb-1">
+              Bem-vindo, {(user.user_metadata.name as string).split(' ')[0]}!
+            </p>
+          )}
+          <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Configure seu Perfil</h1>
           <p className="text-sm text-slate-500 font-medium leading-relaxed">
             Precisamos de mais alguns detalhes para personalizar seu cuidado.
           </p>
         </section>
 
-        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); navigate('/dashboard'); }}>
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); setLoading(true); setTimeout(() => navigate('/dashboard'), 1200); }}>
           <div className="bg-slate-50 border border-slate-200/60 rounded-3xl p-5 space-y-4">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-emerald-100/50 rounded-xl text-emerald-600">

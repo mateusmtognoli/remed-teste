@@ -1,7 +1,6 @@
 import React from 'react';
 import Layout from '../components/Layout';
 import { Shield, Lock, Eye, Key, ChevronRight, UserCheck } from 'lucide-react';
-import { motion } from 'motion/react';
 
 export default function Security() {
   return (
@@ -37,26 +36,6 @@ export default function Security() {
           />
         </section>
 
-        <section className="bg-slate-100 rounded-[2.5rem] p-8">
-          <h3 className="text-xl font-extrabold text-slate-800 mb-6">Privacidade</h3>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-extrabold text-slate-800">Compartilhar Dados de Uso</p>
-                <p className="text-xs text-slate-500 font-medium">Ajude-nos a melhorar o aplicativo.</p>
-              </div>
-              <Toggle active={true} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-extrabold text-slate-800">Perfil Público</p>
-                <p className="text-xs text-slate-500 font-medium">Outros cuidadores podem te encontrar.</p>
-              </div>
-              <Toggle active={false} />
-            </div>
-          </div>
-        </section>
-
         <section>
           <button className="w-full py-5 text-red-600 font-extrabold text-sm uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-colors">
             Excluir Minha Conta
@@ -84,16 +63,5 @@ function SecurityItem({ icon, title, desc, badge }: { icon: React.ReactNode, tit
       </div>
       <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
     </button>
-  );
-}
-
-function Toggle({ active }: { active: boolean }) {
-  return (
-    <div className={`w-10 h-5 rounded-full relative transition-all ${active ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-      <motion.div 
-        animate={{ x: active ? 20 : 4 }}
-        className="absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm"
-      />
-    </div>
   );
 }

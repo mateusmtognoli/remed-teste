@@ -7,11 +7,11 @@ export interface Medication {
   name: string;
   dosage: string;
   instructions: string;
-  time: string; // "HH:MM"
+  time: string;
   status: MedicationStatus;
   confirmTime?: string;
   category?: string;
-  days: number[]; // 0-6 for Sun-Sat
+  days: number[];
   dependentId?: string;
 }
 
@@ -32,12 +32,24 @@ export interface Dependent {
   id: string;
   name: string;
   img: string;
+  pairingCode?: string;
+  relationship?: string;
+  phone?: string;
+  bloodType?: string;
+  height?: string;
+  weight?: string;
+  age?: string;
+  healthInsurance?: string;
+  conditions?: string;
+  allergies?: string;
+  responsavelName?: string;
 }
 
 interface MedicationContextType {
   medications: Medication[];
   addMedication: (med: Omit<Medication, 'id' | 'status'>) => void;
   updateStatus: (id: string, status: MedicationStatus) => void;
+  removeMedication: (id: string) => void;
   inventory: InventoryItem[];
   addInventoryItem: (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color'>) => void;
   updateInventoryCount: (id: string, quantity: number) => void;
@@ -46,6 +58,8 @@ interface MedicationContextType {
   activeDependent: Dependent | null;
   setActiveDependent: (dep: Dependent | null) => void;
   dependents: Dependent[];
+  addDependent: (dep: Omit<Dependent, 'id' | 'pairingCode'>) => Dependent;
+  removeDependent: (id: string) => void;
   pairingCodes: Record<string, string>;
   pairDevice: (code: string) => { success: boolean; dependentName?: string; error?: string };
   unpairDevice: () => void;
@@ -53,208 +67,289 @@ interface MedicationContextType {
 
 const MedicationContext = createContext<MedicationContextType | undefined>(undefined);
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function generatePairingCode(name: string): string {
+  const prefix = name.trim().split(/\s+/)[0].toUpperCase().slice(0, 3).padEnd(3, 'X');
+  const suffix = Math.floor(100 + Math.random() * 900).toString();
+  return `${prefix}-${suffix}`;
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Índice global: código de emparelhamento → dados do dependente
+// Não é escopado por usuário para que funcione entre dispositivos diferentes
+const PAIRING_LOOKUP_KEY = 'remed_pairing_lookup';
+
+function loadPairingLookup(): Record<string, Dependent> {
+  return loadFromStorage<Record<string, Dependent>>(PAIRING_LOOKUP_KEY, {});
+}
+
+function savePairingLookup(lookup: Record<string, Dependent>) {
+  localStorage.setItem(PAIRING_LOOKUP_KEY, JSON.stringify(lookup));
+}
+
+// ── Provider ───────────────────────────────────────────────────────────────
+
 export function MedicationProvider({ children }: { children: React.ReactNode }) {
-  const [userRole, setUserRoleState] = useState<UserRole>(() => {
-    return (localStorage.getItem('remed_user_role') as UserRole) || 'responsavel';
+  // Chave única por usuário — garante isolamento entre contas
+  const userKey = localStorage.getItem('remed_current_user') || 'default';
+  const ROLE_KEY  = `remed_user_role_${userKey}`;
+  const DEPS_KEY  = `remed_dependents_${userKey}`;
+  const ADEP_KEY  = `remed_active_dep_${userKey}`;
+  const MEDS_KEY  = `remed_medications_${userKey}`;
+  const INV_KEY   = `remed_inventory_${userKey}`;
+  // Para emparelhado, lê/escreve medicamentos da conta do responsável
+  const savedRole = localStorage.getItem(ROLE_KEY) as UserRole | null;
+  const responsavelKey = localStorage.getItem('remed_responsavel_key');
+  const MEDS_SYNC_KEY = savedRole === 'emparelhado' && responsavelKey
+    ? `remed_medications_${responsavelKey}`
+    : MEDS_KEY;
+
+  const [userRole, setUserRoleState] = useState<UserRole>(
+    () => (localStorage.getItem(ROLE_KEY) as UserRole) || 'responsavel'
+  );
+
+  const [dependents, setDependents] = useState<Dependent[]>(() => {
+    const saved = loadFromStorage<Dependent[]>(DEPS_KEY, []);
+    const responsavelName = localStorage.getItem('remed_user_name') || '';
+    return responsavelName ? saved.map(d => ({ ...d, responsavelName })) : saved;
   });
-  const [dependents] = useState<Dependent[]>([
-    { id: '1', name: 'Teresinha Andrade', img: '/img/foto_teresinha.png' },
-    { id: '2', name: 'Antônio Andrade', img: '/img/foto_antonio.png' }
-  ]);
+
   const [activeDependent, setActiveDependentState] = useState<Dependent | null>(() => {
-    const savedId = localStorage.getItem('remed_active_dependent_id');
-    if (savedId) {
-      const found = [
-        { id: '1', name: 'Teresinha Andrade', img: '/img/foto_teresinha.png' },
-        { id: '2', name: 'Antônio Andrade', img: '/img/foto_antonio.png' }
-      ].find(d => d.id === savedId);
-      if (found) return found;
-    }
-    return null;
+    const savedId = localStorage.getItem(ADEP_KEY);
+    if (!savedId) return null;
+    const deps = loadFromStorage<Dependent[]>(DEPS_KEY, []);
+    // Tenta na lista do usuário primeiro; senão consulta o índice global de emparelhamento
+    const fromDeps = deps.find(d => d.id === savedId);
+    if (fromDeps) return fromDeps;
+    const lookup = loadPairingLookup();
+    return Object.values(lookup).find(d => d.id === savedId) ?? null;
   });
 
   const setUserRole = (role: UserRole) => {
     setUserRoleState(role);
-    localStorage.setItem('remed_user_role', role);
+    localStorage.setItem(ROLE_KEY, role);
   };
 
   const setActiveDependent = (dep: Dependent | null) => {
     setActiveDependentState(dep);
-    if (dep) {
-      localStorage.setItem('remed_active_dependent_id', dep.id);
-    } else {
-      localStorage.removeItem('remed_active_dependent_id');
-    }
+    if (dep) localStorage.setItem(ADEP_KEY, dep.id);
+    else localStorage.removeItem(ADEP_KEY);
   };
 
-  const pairingCodes: Record<string, string> = {
-    '1': 'TER-482',
-    '2': 'ANT-753'
+  const addDependent = (dep: Omit<Dependent, 'id' | 'pairingCode'>): Dependent => {
+    const newDep: Dependent = {
+      ...dep,
+      id: Math.random().toString(36).substring(2, 11),
+      pairingCode: generatePairingCode(dep.name),
+    };
+
+    // Salva na lista escopada do usuário
+    setDependents(prev => {
+      const updated = [...prev, newDep];
+      localStorage.setItem(DEPS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    // Registra no índice global de emparelhamento
+    if (newDep.pairingCode) {
+      const lookup = loadPairingLookup();
+      lookup[newDep.pairingCode] = newDep;
+      savePairingLookup(lookup);
+      // Guarda o userKey do responsável para que o emparelhado possa sincronizar medicamentos
+      localStorage.setItem(`remed_pair_owner_${newDep.pairingCode}`, userKey);
+    }
+
+    return newDep;
   };
+
+  const removeDependent = (id: string) => {
+    setDependents(prev => {
+      const dep = prev.find(d => d.id === id);
+      const updated = prev.filter(d => d.id !== id);
+      localStorage.setItem(DEPS_KEY, JSON.stringify(updated));
+
+      // Remove do índice global
+      if (dep?.pairingCode) {
+        const lookup = loadPairingLookup();
+        delete lookup[dep.pairingCode];
+        savePairingLookup(lookup);
+        localStorage.removeItem(`remed_pair_owner_${dep.pairingCode}`);
+      }
+      return updated;
+    });
+    if (activeDependent?.id === id) setActiveDependent(null);
+  };
+
+  const pairingCodes = Object.fromEntries(
+    dependents.filter(d => d.pairingCode).map(d => [d.id, d.pairingCode!])
+  );
 
   const pairDevice = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
-    const foundEntry = Object.entries(pairingCodes).find(([id, c]) => c === cleanCode);
-    if (foundEntry) {
-      const depId = foundEntry[0];
-      const dependent = dependents.find(d => d.id === depId);
-      if (dependent) {
+
+    // 1. Tenta na lista local do usuário (mesmo dispositivo)
+    const entry = Object.entries(pairingCodes).find(([, c]) => c === cleanCode);
+    if (entry) {
+      const dep = dependents.find(d => d.id === entry[0]);
+      if (dep) {
+        localStorage.setItem('remed_responsavel_key', userKey);
         setUserRole('emparelhado');
-        setActiveDependent(dependent);
-        return { success: true, dependentName: dependent.name };
+        setActiveDependent(dep);
+        return { success: true, dependentName: dep.name };
       }
     }
+
+    // 2. Consulta o índice global (dispositivo diferente)
+    const lookup = loadPairingLookup();
+    const dep = lookup[cleanCode];
+    if (dep) {
+      const ownerKey = localStorage.getItem(`remed_pair_owner_${cleanCode}`) || 'default';
+      localStorage.setItem('remed_responsavel_key', ownerKey);
+      setUserRole('emparelhado');
+      setActiveDependent(dep);
+      return { success: true, dependentName: dep.name };
+    }
+
     return { success: false, error: 'Código inválido ou não encontrado.' };
   };
 
   const unpairDevice = () => {
     setUserRole('responsavel');
-    setActiveDependent(dependents[0]);
-    localStorage.removeItem('remed_user_role');
-    localStorage.removeItem('remed_active_dependent_id');
+    setActiveDependentState(dependents[0] ?? null);
+    localStorage.removeItem(ROLE_KEY);
+    localStorage.removeItem(ADEP_KEY);
+    localStorage.removeItem('remed_responsavel_key');
   };
 
   React.useEffect(() => {
-    if (userRole === 'responsavel' && !activeDependent) {
-      setActiveDependentState(dependents.find(d => d.name === 'Antônio Andrade') || dependents[0]);
-    } else if (userRole === 'emparelhado' && !activeDependent) {
-      setActiveDependentState(dependents.find(d => d.id === '2') || dependents[0]);
-    } else if (userRole === 'dependente') {
-      setUserRole('emparelhado');
-      setActiveDependentState(dependents.find(d => d.id === '2') || dependents[0]);
+    if (userRole === 'responsavel' && !activeDependent && dependents.length > 0) {
+      setActiveDependentState(dependents[0]);
     }
   }, [userRole, activeDependent, dependents]);
 
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: '1', name: 'Vitamina D 2000UI', status: 'Crítico', count: 4, daysLeft: 2, bar: '25%', type: 'medication', color: 'bg-red-500' },
-    { id: '2', name: 'Amoxicilina 500mg', status: 'Alerta', count: 28, daysLeft: 14, bar: '45%', type: 'pill', color: 'bg-emerald-500' },
-    { id: '3', name: 'Ômega 3 1000mg', status: null, count: 60, daysLeft: 60, bar: '95%', type: 'vaccines', color: 'bg-emerald-700' },
-  ]);
-
-  const [medications, setMedications] = useState<Medication[]>([
-    // Teresinha's Medications (ID 1)
-    {
-      id: '2',
-      name: 'Losartana 50mg',
-      dosage: '1 comprimido',
-      instructions: 'Em jejum',
-      time: '07:00',
-      status: 'Tomada',
-      confirmTime: '07:12',
-      category: 'Anti-hipertensivo',
-      days: [0, 1, 2, 3, 4, 5, 6],
-      dependentId: '1'
-    },
-    {
-      id: '3',
-      name: 'Metformina 850mg',
-      dosage: '1 comprimido',
-      instructions: 'Após o jantar',
-      time: '20:00',
-      status: 'Pendente',
-      category: 'Antidiabético',
-      days: [0, 1, 2, 3, 4, 5, 6],
-      dependentId: '1'
-    },
-    // Antônio's Medications (ID 2) - This will be the set for the "Dependente" view
-    {
-      id: '4',
-      name: 'Vitamina D 2000UI',
-      dosage: '1 cápsula',
-      instructions: 'Tomar pela manhã',
-      time: '08:00',
-      status: 'Tomada',
-      confirmTime: '08:10',
-      category: 'Suplemento',
-      days: [0, 1, 2, 3, 4, 5, 6],
-      dependentId: '2'
-    },
-    {
-      id: '5',
-      name: 'Amoxicilina 500mg',
-      dosage: '1 cápsula',
-      instructions: 'De 8 em 8 horas',
-      time: '14:00',
-      status: 'Atrasada',
-      category: 'Antibiótico',
-      days: [0, 1, 2, 3, 4, 5, 6],
-      dependentId: '2'
-    },
-    {
-      id: '6',
-      name: 'Dipirona 500mg',
-      dosage: '20 gotas',
-      instructions: 'Se houver febre ou dor',
-      time: '22:00',
-      status: 'Pendente',
-      category: 'Analgésico',
-      days: [0, 1, 2, 3, 4, 5, 6],
-      dependentId: '2'
-    }
-  ]);
+  const [medications, setMedications] = useState<Medication[]>(() =>
+    loadFromStorage<Medication[]>(MEDS_SYNC_KEY, [])
+  );
+  const [inventory, setInventory] = useState<InventoryItem[]>(() =>
+    loadFromStorage<InventoryItem[]>(INV_KEY, [])
+  );
 
   const addMedication = (med: Omit<Medication, 'id' | 'status'>) => {
-    const newMed: Medication = {
-      ...med,
-      id: Math.random().toString(36).substr(2, 9),
-      status: 'Pendente'
-    };
-    setMedications(prev => [...prev, newMed]);
+    setMedications(prev => {
+      const updated = [...prev, {
+        ...med,
+        id: Math.random().toString(36).substring(2, 11),
+        status: 'Pendente' as MedicationStatus,
+      }];
+      localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const updateStatus = (id: string, status: MedicationStatus) => {
-    setMedications(prev => prev.map(m => {
-      if (m.id === id) {
-        const confirmTime = status === 'Tomada' ? new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : undefined;
-        return { ...m, status, confirmTime };
-      }
-      return m;
-    }));
+    setMedications(prev => {
+      const updated = prev.map(m => {
+        if (m.id !== id) return m;
+        return {
+          ...m,
+          status,
+          confirmTime: status === 'Tomada' || status === 'Pulada'
+            ? new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : undefined,
+        };
+      });
+      localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeMedication = (id: string) => {
+    setMedications(prev => {
+      const updated = prev.filter(m => m.id !== id);
+      localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'status' | 'bar' | 'color'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: Math.random().toString(36).substr(2, 9),
-      status: item.count < 10 ? 'Crítico' : (item.count < 30 ? 'Alerta' : null),
-      bar: `${Math.min(100, (item.count / 60) * 100)}%`,
-      color: item.count < 10 ? 'bg-red-500' : 'bg-emerald-500'
-    };
-    setInventory(prev => [...prev, newItem]);
+    setInventory(prev => {
+      const updated = [...prev, {
+        ...item,
+        id: Math.random().toString(36).substring(2, 11),
+        status: item.count < 10 ? 'Crítico' : item.count < 30 ? 'Alerta' : null,
+        bar: `${Math.min(100, (item.count / 60) * 100)}%`,
+        color: item.count < 10 ? 'bg-red-500' : 'bg-emerald-500',
+      }] as InventoryItem[];
+      localStorage.setItem(INV_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const updateInventoryCount = (id: string, quantity: number) => {
-    setInventory(prev => prev.map(item => {
-      if (item.id === id) {
+    setInventory(prev => {
+      const updated = prev.map(item => {
+        if (item.id !== id) return item;
         const newCount = item.count + quantity;
         return {
           ...item,
           count: newCount,
-          status: newCount < 10 ? 'Crítico' : (newCount < 30 ? 'Alerta' : null),
+          status: newCount < 10 ? 'Crítico' : newCount < 30 ? 'Alerta' : null,
           bar: `${Math.min(100, (newCount / 60) * 100)}%`,
-          color: newCount < 10 ? 'bg-red-500' : 'bg-emerald-500'
+          color: newCount < 10 ? 'bg-red-500' : 'bg-emerald-500',
         };
-      }
-      return item;
-    }));
+      });
+      localStorage.setItem(INV_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
+  // Atualiza status para 'Atrasada' quando o horário agendado já passou
+  React.useEffect(() => {
+    const checkOverdue = () => {
+      const now = new Date();
+      const todayDay = now.getDay();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      setMedications(prev => {
+        let changed = false;
+        const updated = prev.map(m => {
+          if (m.status !== 'Pendente') return m;
+          if (!m.days.includes(todayDay)) return m;
+          const [h, min] = m.time.split(':').map(Number);
+          if (nowMinutes > h * 60 + min) {
+            changed = true;
+            return { ...m, status: 'Atrasada' as MedicationStatus };
+          }
+          return m;
+        });
+        if (changed) localStorage.setItem(MEDS_SYNC_KEY, JSON.stringify(updated));
+        return changed ? updated : prev;
+      });
+    };
+
+    checkOverdue();
+    const interval = setInterval(checkOverdue, 60_000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <MedicationContext.Provider value={{ 
-      medications, 
-      addMedication, 
-      updateStatus,
-      inventory,
-      addInventoryItem,
-      updateInventoryCount,
-      userRole,
-      setUserRole,
-      activeDependent,
-      setActiveDependent,
-      dependents,
-      pairingCodes,
-      pairDevice,
-      unpairDevice
+    <MedicationContext.Provider value={{
+      medications, addMedication, updateStatus, removeMedication,
+      inventory, addInventoryItem, updateInventoryCount,
+      userRole, setUserRole,
+      activeDependent, setActiveDependent,
+      dependents, addDependent, removeDependent,
+      pairingCodes, pairDevice, unpairDevice,
     }}>
       {children}
     </MedicationContext.Provider>
